@@ -36,6 +36,7 @@ class Render(object):
     self.current_color = color(1,0,0)
     
     
+    
 
     self.glViewPort(0,0,self.width, self.height)
     self.glClear()
@@ -175,7 +176,23 @@ class Render(object):
         v1.y * v2.z - v1.z * v2.y,
         v1.z * v2.x - v1.x * v2.z,
         v1.x * v2.y - v1.y * v2.x
+        )
+    
+  def barycentric(self, A, B, C, P):
+    
+    cx, cy, cz = self.cross(
+        V3(B.x - A.x, C.x - A.x, A.x - P.x),
+        V3(B.y - A.y, C.y - A.y, A.y - P.y)
     )
+    
+    if abs(cz) < 1:
+        return(-1, -1, -1)
+      
+    u = cx / cz
+    v = cy / cz
+    w = 1 - (u + v) 
+
+    return (w, v, u)
   
   def bounding_box(self, A, B, C):
     coordenadas = [(A.x, A.y),(B.x, B.y),(C.x, C.y)]
@@ -196,21 +213,6 @@ class Render(object):
             ymax = y
     return V3(xmin, ymin), V3(xmax, ymax)
   
-  def barycentric(self, A, B, C, P):
-    
-    cx, cy, cz = cross(
-        V3(B.x - A.x, C.x - A.x, A.x - P.x),
-        V3(B.y - A.y, C.y - A.y, A.y - P.y)
-    )
-    
-    if abs(cz) < 1:
-        return(-1, -1, -1)
-      
-    u = cx / cz
-    v = cy / cz
-    w = 1 - (u + v) 
-
-    return (w, v, u)
   
   def transform(self, vertex, translate, scale):
         return V3(
@@ -222,46 +224,35 @@ class Render(object):
   def lightPosition(self, x:int, y:int, z:int):
         self.light = V3(x, y, z)
         
-  def trainglebb(self, vertices, tvertices=()):
-        A, B, C = vertices
-        if self.texture:
-            tA, tB, tC = tvertices
-        
-        Light = self.light
-        Normal = (B - A) * (C - A)
-        i = Normal.norm() @ Light.norm()
-        if i < 0:
-            return
+  def trainglebb(self,  A, B, C):
+    D = (C - A) * (B - A)
+    E = V3(0, 0, -1)
+    i = D.norm() @ E.norm() 
 
-        print(i)
-        self.clearColor = color_select(
-            round(255 * i),
-            round(255 * i),
-            round(255 * i)
-        )
+    if i <= 0 or i > 1:
+        return
 
-        min,max = bounding_box(A, B, C)
-        min.round_coords()
-        max.round_coords()
-        
-        for x in range(min.x, max.x + 1):
-            for y in range(min.y, max.y + 1):
-                w, v, u = barycentric(A, B, C, V3(x, y))
+    grey = round(255 * i)
 
-                if (w < 0 or v < 0 or u < 0):
-                    continue
+    self.current_color = color(grey, grey, grey)
 
-                z = A.z * w + B.z * v + C.z * u
-                if (self.zBuffer[x][y] < z):
-                    self.zBuffer[x][y] = z
+    Bmin, Bmax = self.bounding_box(A, B, C)
+    for x in range(round(Bmin.x), round(Bmax.x) + 1):
+        for y in range(round(Bmin.y), round(Bmax.y) + 1):
+            w, v, u = self.barycentric(A, B, C, V3(x, y))
 
-                    if self.texture:
-                        tx = tA.x * w + tB.x * u + tC.x * v
-                        ty = tA.y * w + tB.y * u + tC.y * v
+            if (w < 0 or v < 0 or u < 0):
+                continue
 
-                        self.current_color = self.texture.get_color_with_intensity(tx, ty, i)
-                    
-                    self.glPoint(x, y)
+            z = A.z * w + B.z * v + C.z * u
+
+            factor = round(z/self.width)
+
+            if (self.zBuffer[x][y] < z):
+                self.zBuffer[x][y] = z
+                self.zClear[x][y] = color(factor, factor, factor)
+                self.glPoint(x, y)
+    pass
   
     
 r = Render(400,400)
