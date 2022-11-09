@@ -1,5 +1,6 @@
 import struct
 from obj import Obj
+from Vector import *
 
 def char(c):
   return struct.pack('=c', c.encode('ascii'))
@@ -136,30 +137,137 @@ class Render(object):
                 self.framebuffer[y][x] = self.pintar
             offset += 2*dy
   
+  #SR3
   def glObjModel(self, file_name, translate=(0,0), scale=(1,1)):
         #Lector .obj
         model = Obj(file_name)
-        model.read()
         
         for face in model.faces:
-            vertices_ctr = len(face)
-            for j in range(vertices_ctr):
-                f1 = face[j][0]
-                f2 = face[(j+1) % vertices_ctr][0]
-                
-                v1 = model.vertices[f1 - 1]
-                v2 = model.vertices[f2 - 1]
+            if len(face) == 3:
 
-                x1 = (v1[0] + translate[0]) * scale[0]
-                y1 = (v1[1] + translate[1]) * scale[1]
-                x2 = (v2[0] + translate[0]) * scale[0]
-                y2 = (v2[1] + translate[1]) * scale[1]
+                v1 = self.transform(model.vertices[face[0][0] - 1], translate, scale)
+                v2 = self.transform(model.vertices[face[1][0] - 1], translate, scale)
+                v3 = self.transform(model.vertices[face[2][0] - 1], translate, scale)
 
-                self.glLine(x1, y1, x2, y2)
+                self.trainglebb(v1, v2, v3)
+            if len(face) == 4:
+
+                f1 = face[0][0] - 1
+                f2 = face[1][0] - 1
+                f3 = face[2][0] - 1
+                f4 = face[3][0] - 1
+
+                vertices = [
+                    self.transform(model.vertices[f1], translate, scale),
+                    self.transform(model.vertices[f2], translate, scale),
+                    self.transform(model.vertices[f3], translate, scale),
+                    self.transform(model.vertices[f4], translate, scale)
+                ]
+
+                A, B, C, D = vertices
+
+                self.trainglebb(A, B, C)
+                self.trainglebb(A, C, D)
+  
+  #SR4 
+  def cross(self, v1, v2):
+    return (
+        v1.y * v2.z - v1.z * v2.y,
+        v1.z * v2.x - v1.x * v2.z,
+        v1.x * v2.y - v1.y * v2.x
+    )
+  
+  def bounding_box(self, A, B, C):
+    coordenadas = [(A.x, A.y),(B.x, B.y),(C.x, C.y)]
+
+    xmin = 999999
+    xmax = -999999
+    ymin = 999999
+    ymax = -999999
+
+    for (x, y) in coordenadas:
+        if x < xmin:
+            xmin = x
+        if x > xmax:
+            xmax = x
+        if y < ymin:
+            ymin = y
+        if y > ymax:
+            ymax = y
+    return V3(xmin, ymin), V3(xmax, ymax)
+  
+  def barycentric(self, A, B, C, P):
+    
+    cx, cy, cz = cross(
+        V3(B.x - A.x, C.x - A.x, A.x - P.x),
+        V3(B.y - A.y, C.y - A.y, A.y - P.y)
+    )
+    
+    if abs(cz) < 1:
+        return(-1, -1, -1)
+      
+    u = cx / cz
+    v = cy / cz
+    w = 1 - (u + v) 
+
+    return (w, v, u)
+  
+  def transform(self, vertex, translate, scale):
+        return V3(
+            ((vertex[0] * scale[0]) + translate[0]),
+            ((vertex[1] * scale[1]) + translate[1]),
+            ((vertex[2] * scale[2]) + translate[2])
+        )
+  
+  def lightPosition(self, x:int, y:int, z:int):
+        self.light = V3(x, y, z)
+        
+  def trainglebb(self, vertices, tvertices=()):
+        A, B, C = vertices
+        if self.texture:
+            tA, tB, tC = tvertices
+        
+        Light = self.light
+        Normal = (B - A) * (C - A)
+        i = Normal.norm() @ Light.norm()
+        if i < 0:
+            return
+
+        print(i)
+        self.clearColor = color_select(
+            round(255 * i),
+            round(255 * i),
+            round(255 * i)
+        )
+
+        min,max = bounding_box(A, B, C)
+        min.round_coords()
+        max.round_coords()
+        
+        for x in range(min.x, max.x + 1):
+            for y in range(min.y, max.y + 1):
+                w, v, u = barycentric(A, B, C, V3(x, y))
+
+                if (w < 0 or v < 0 or u < 0):
+                    continue
+
+                z = A.z * w + B.z * v + C.z * u
+                if (self.zBuffer[x][y] < z):
+                    self.zBuffer[x][y] = z
+
+                    if self.texture:
+                        tx = tA.x * w + tB.x * u + tC.x * v
+                        ty = tA.y * w + tB.y * u + tC.y * v
+
+                        self.current_color = self.texture.get_color_with_intensity(tx, ty, i)
+                    
+                    self.glPoint(x, y)
+  
     
 r = Render(400,400)
 r.glCreateWindow(400, 400)
 r.glViewPort(400,400 , 400, 400)
-r.glObjModel('silla.obj', (0, 0), (0.3, 0.3))
+r.lightPosition(0, 0, 1)
+r.glObjModel('silla.obj', (500, 10, 0), (200, 200, 200))
 
 r.glFinish("obj.bmp")
