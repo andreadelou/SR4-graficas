@@ -1,6 +1,8 @@
 import struct
+
 from obj import Obj
 from Vector import *
+
 
 def char(c):
   return struct.pack('=c', c.encode('ascii'))
@@ -100,7 +102,7 @@ class Render(object):
     f.write(dword(0))
     f.write(dword(0))
 
-    # Pixel data (width x height x 3 pixels)
+    
     for x in range(self.height):
       for y in range(self.width):
         f.write(self.framebuffer[x][y])
@@ -108,8 +110,10 @@ class Render(object):
     f.close()
 
   def point(self, x, y, color = None):
-    # 0,0 was intentionally left in the bottom left corner to mimic opengl
-    self.pixels[y][x] = color or self.current_color
+    try:
+      self.framebuffer[y][x] = color or self.current_color
+    except:
+      pass
     
   def set_color(self, color):
     self.current_color = color
@@ -247,22 +251,19 @@ class Render(object):
             w, v, u = self.barycentric(A, B, C, V3(x, y))
 
             if (w < 0 or v < 0 or u < 0):
-                continue
+              continue
 
             z = A.z * w + B.z * v + C.z * u
-
-            factor = round(z/self.width)
-
-            if (self.zBuffer[x][y] < z):
-                self.zBuffer[x][y] = z
-                self.zClear[x][y] = color(factor, factor, factor)
-                self.glPoint(x, y)
+            
+            if z > self.zBuffer[x][y]:
+              self.point(x, y, color)
+              self.zBuffer[x][y] = z
     pass
   
     
-r = Render(400,400)
-r.glCreateWindow(400, 400)
-r.glViewPort(400,400 , 400, 400)
+r = Render(800,800)
+r.glCreateWindow(800, 800)
+r.glViewPort(800,800 , 800, 800)
 r.lightPosition(0, 0, 1)
 r.glObjModel('silla.obj', (500, 10, 0), (200, 200, 200))
 
