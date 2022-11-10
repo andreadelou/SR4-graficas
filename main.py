@@ -46,6 +46,11 @@ class Render(object):
       [color(0,0,0) for x in range(self.width)] 
       for y in range(self.height)
     ]
+    
+    self.zBuffer = [
+            [-9999 for x in range(self.width)]
+            for y in range(self.height)
+        ]
 
   def glCreateWindow(self,width, height):
       self.width = width
