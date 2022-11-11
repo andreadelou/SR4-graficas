@@ -118,11 +118,15 @@ class Render(object):
   def set_color(self, color):
     self.current_color = color
     
-  def glLine(self,x1, y1, x2, y2):
-        x1 = int(round((x1+1) * self.width / 2))
-        y1 = int(round((y1+1) * self.height / 2))
-        x2 = int(round((x2+1) * self.width / 2))
-        y2 = int(round((y2+1) * self.height / 2))
+  def glLine(self,v1,v2):
+        x1 = int(round(v1.x))
+        y1 = int(round(v1.y))
+        x2 = int(round(v2.x))
+        y2 = int(round(v2.y))
+        # x1 = int(round((x1+1) * self.width / 2))
+        # y1 = int(round((y1+1) * self.height / 2))
+        # x2 = int(round((x2+1) * self.width / 2))
+        # y2 = int(round((y2+1) * self.height / 2))
         steep=(abs(y2 - y1))>(abs(x2 - x1))
         if steep:
             x1, y1 = y1, x1
@@ -148,7 +152,7 @@ class Render(object):
             offset += 2*dy
   
   #SR3
-  def glObjModel(self, file_name, translate=(0,0), scale=(1,1)):
+  def glObjModel(self, file_name, translate=(0,0,0), scale=(1,1,1)):
         #Lector .obj
         model = Obj(file_name)
         
