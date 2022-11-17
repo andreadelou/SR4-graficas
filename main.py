@@ -17,13 +17,51 @@ def dword(d):
 
 
 def color(r,g,b):
-    # Creacion de Color (255 deja usar todos los colores)
-    return bytes([int(b*255),
-                int(g*255),
-                int(r*255)])
+  return bytes([b, g, r])
+    # return bytes([int(b*255),
+    #             int(g*255),
+    #             int(r*255)])
 
+def cross(v1, v2):
+      return (
+        v1.y * v2.z - v1.z * v2.y,
+        v1.z * v2.x - v1.x * v2.z,
+        v1.x * v2.y - v1.y * v2.x
+      )
+    
+def bounding_box(self, A, B, C):
+  coords = [(A.x, A.y), (B.x, B.y), (C.x, C.y)]
 
+  xmin = 999999
+  xmax = -999999
+  ymin = 999999
+  ymax = -999999
 
+  for (x, y) in coords:
+    if x < xmin:
+      xmin = x
+    if x > xmax:
+      xmax = x
+    if y < ymin:
+      ymin = y
+    if y > ymax:
+      ymax = y
+
+  return V3(xmin, ymin), V3(xmax, ymax)
+
+def barycentric(A, B, C, P):
+      cx, cy, cz = cross(
+        V3(B.x - A.x, C.x - A.x, A.x - P.x),
+        V3(B.y - A.y, C.y - A.y, A.y - P.y)
+      )
+      if cz == 0:
+        return(-1, -1, -1)
+      u = cx / cz
+      v = cy / cz
+      w = 1 - (u + v) 
+
+      return (w, v, u)
+    
 class Render(object):
     # Constructor
     def __init__(self):
@@ -32,6 +70,7 @@ class Render(object):
         self.height = 0
         self.width = 0
         self.clearColor = color(0, 0, 0)
+        self.texture = None
 
         self.current_color = color(1, 1, 1)
         self.framebuffer = []
@@ -99,39 +138,62 @@ class Render(object):
 
           threshold += dx * 2
             
-    def glObjModel(self, file_name, translate=(0,0), scale=(1,1)):
-      model = Obj(file_name)
-      model.read()
+    def glObjModel(self, filename, scale_factor, translate_factor):
+      model = Obj(filename)
       
       for face in model.faces:
+  
         if len(face) == 4:
           f1 = face[0][0] - 1
           f2 = face[1][0] - 1
           f3 = face[2][0] - 1
           f4 = face[3][0] - 1
 
-          vertices = [
-            self.transform_vertex(model.vertices[f1], translate, scale),
-            self.transform_vertex(model.vertices[f2], translate, scale),
-            self.transform_vertex(model.vertices[f3], translate, scale),
-            self.transform_vertex(model.vertices[f4], translate, scale)
-          ]
+          v1 = self.transform_vertex(model.vertex[f1], scale_factor, translate_factor)
+          v2 = self.transform_vertex(model.vertex[f2], scale_factor, translate_factor)
+          v3 = self.transform_vertex(model.vertex[f3], scale_factor, translate_factor)
+          v4 = self.transform_vertex(model.vertex[f4], scale_factor, translate_factor)
 
-          A, B, C, D = vertices
+          if self.texture:
 
-          self.transform_vertex(A, B, C)
-          self.transform_vertex(A, C, D)
-          
+            ft1 = face[0][1] - 1
+            ft2 = face[1][1] - 1
+            ft3 = face[2][1] - 1
+            ft4 = face[3][1] - 1
+
+            vt1 = V3(*model.tvertices[ft1])
+            vt2 = V3(*model.tvertices[ft2])
+            vt3 = V3(*model.tvertices[ft3])
+            vt4 = V3(*model.tvertices[ft4])
+
+            self.triangle_babycenter((v1, v2, v3), (vt1, vt2, vt3))
+            self.triangle_babycenter((v1, v3, v4), (vt1, vt3, vt4))
+          else:
+            self.triangle_babycenter((v1, v2, v3))
+            self.triangle_babycenter((v1, v3, v4))
+        
         if len(face) == 3:
           f1 = face[0][0] - 1
           f2 = face[1][0] - 1
           f3 = face[2][0] - 1
-          
-          v1 = self.transform_vertex(model.vertices[f1], scale_factor, translate_factor)
-          v2 = self.transform_vertex(model.vertices[f2], scale_factor, translate_factor)
-          v3 = self.transform_vertex(model.vertices[f3], scale_factor, translate_factor)
 
-          self.triangle(v1, v2, v3)
+          v1 = self.transform_vertex(model.vertex[f1], scale_factor, translate_factor)
+          v2 = self.transform_vertex(model.vertex[f2], scale_factor, translate_factor)
+          v3 = self.transform_vertex(model.vertex[f3], scale_factor, translate_factor)
+          
+          if self.texture:
+
+            ft1 = face[0][1] - 1
+            ft2 = face[1][1] - 1
+            ft3 = face[2][1] - 1
+
+            vt1 = V3(*model.tvertices[ft1])
+            vt2 = V3(*model.tvertices[ft2])
+            vt3 = V3(*model.tvertices[ft3])
+
+            self.triangle_babycenter((v1, v2, v3), (vt1, vt2, vt3))
+          else:
+            self.triangle_babycenter((v1, v2, v3))
             
     
     def transform_vertex(self, vertex, scale_factor, translate_factor):
@@ -142,45 +204,6 @@ class Render(object):
       )  
         
     # SR4               
-    def cross(v1, v2):
-      return (
-        v1.y * v2.z - v1.z * v2.y,
-        v1.z * v2.x - v1.x * v2.z,
-        v1.x * v2.y - v1.y * v2.x
-      )
-    
-    def bounding_box(self, A, B, C):
-      coords = [(A.x, A.y), (B.x, B.y), (C.x, C.y)]
-
-      xmin = 999999
-      xmax = -999999
-      ymin = 999999
-      ymax = -999999
-
-      for (x, y) in coords:
-        if x < xmin:
-          xmin = x
-        if x > xmax:
-          xmax = x
-        if y < ymin:
-          ymin = y
-        if y > ymax:
-          ymax = y
-
-      return V3(xmin, ymin), V3(xmax, ymax)
-    
-    def barycentric(A, B, C, P):
-      cx, cy, cz = cross(
-        V3(B.x - A.x, C.x - A.x, A.x - P.x),
-        V3(B.y - A.y, C.y - A.y, A.y - P.y)
-      )
-      if cz == 0:
-        return(-1, -1, -1)
-      u = cx / cz
-      v = cy / cz
-      w = 1 - (u + v) 
-
-      return (w, v, u)
     
     def triangle_babycenter(self, vertices, tvertices=()):
       A, B, C = vertices
@@ -193,8 +216,8 @@ class Render(object):
       if i < 0:
         return
 
-      print(i)
-      self.clearColor = color_select(
+      # print(i)
+      self.clearColor = color(
         round(255 * i),
         round(255 * i),
         round(255 * i)
@@ -259,9 +282,9 @@ class Render(object):
 
   
 r = Render()
-r.glCreateWindow(400, 400)
-r.glViewport(int(0),int(0),int(400/1), int(400/1))
+r.glCreateWindow(800, 800)
+# r.glViewport(int(0),int(0),int(800/1), int(800/1))
 r.lightPosition(0, 0, 1)
 
-r.glObjModel('silla.obj', (0, 0,0), (0.3, 0.3,0.3))
+r.glObjModel('silla.obj', (50, 50, 100), (400, 200, 0))
 r.glFinish("obj.bmp")

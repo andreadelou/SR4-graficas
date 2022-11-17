@@ -1,18 +1,27 @@
+
 class Obj(object):
     def __init__(self, filename):
         with open(filename) as f:
             self.lines = f.read().splitlines()
+            self.vertex = []
+            self.faces = []
+            
+            i = 1
+            
+            for line in self.lines:
 
-        self.vertices = []
-        self.faces = []
-        self.read()
+                if not line or line.startswith("#"):
+                    continue
 
-    def read(self):
-        for line in self.lines:
-            if line: 
-                prefix, value = line.split(' ', 1) 
+                prefix, value =  line.split(' ', 1)
 
-                if prefix == 'v': 
-                    self.vertices.append(list(map(float, value.split(' ')))) 
+                i += 1
+                
+                if prefix == 'v':
+                    self.vertex.append(list(map(float, value.split(' '))))
                 elif prefix == 'f':
-                    self.faces.append([list(map(int , face.split('/'))) for face in value.split(' ')])
+                    try:
+                        self.faces.append([list(map(int , face.split('/'))) for face in value.split(' ')])
+                    except:
+                        self.faces.append([list(map(int , face.split('//'))) for face in value.split(' ')])
+
