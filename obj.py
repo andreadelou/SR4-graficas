@@ -8,7 +8,7 @@ class Obj(object):
         self.read()
 
     def read(self):
-        for line in self.lines: 
+        for line in self.lines:
             if line: 
                 prefix, value = line.split(' ', 1) 
 
