@@ -287,7 +287,7 @@ class Render(object):
 r = Render()
 r.glCreateWindow(800, 800)
 # r.glViewport(int(0),int(0),int(800/1), int(800/1))
-r.lightPosition(0, 0, 1)
-
-r.glObjModel('silla.obj', (50, 50, 100), (400, 200, 0))
+r.lightPosition(0, 1, 1)
+#                          escala            posicion y , x
+r.glObjModel('silla.obj', (100, 100, 100), (400, 400, 0))
 r.glFinish("obj.bmp")
