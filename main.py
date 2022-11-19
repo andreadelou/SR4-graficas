@@ -29,25 +29,24 @@ def cross(v1, v2):
         v1.x * v2.y - v1.y * v2.x
       )
     
-def bounding_box(self, A, B, C):
-  coords = [(A.x, A.y), (B.x, B.y), (C.x, C.y)]
+def bounding_box(A, B, C):
+    coords = [(A.x, A.y),(B.x, B.y),(C.x, C.y)]
 
-  xmin = 999999
-  xmax = -999999
-  ymin = 999999
-  ymax = -999999
+    xmin = 999999
+    xmax = -999999
+    ymin = 999999
+    ymax = -999999
 
-  for (x, y) in coords:
-    if x < xmin:
-      xmin = x
-    if x > xmax:
-      xmax = x
-    if y < ymin:
-      ymin = y
-    if y > ymax:
-      ymax = y
-
-  return V3(xmin, ymin), V3(xmax, ymax)
+    for (x, y) in coords:
+        if x < xmin:
+            xmin = x
+        if x > xmax:
+            xmax = x
+        if y < ymin:
+            ymin = y
+        if y > ymax:
+            ymax = y
+    return V3(xmin, ymin), V3(xmax, ymax)
 
 def barycentric(A, B, C, P):
       cx, cy, cz = cross(
@@ -65,6 +64,7 @@ def barycentric(A, B, C, P):
 class Render(object):
     # Constructor
     def __init__(self):
+        self.pixels = 0
         self.viewPortX = 0
         self.viewPortY = 0
         self.height = 0
@@ -82,6 +82,11 @@ class Render(object):
         self.width = width
         self.height = height
         self.glClear()
+        
+        self.zBuffer = [
+          [-9999 for x in range(self.width)]
+          for y in range(self.height)
+        ]
 
     def glViewport(self, x, y, width, height):
         self.viewpx = x
@@ -101,10 +106,8 @@ class Render(object):
         self.current_color = color(r, g, b)
 
     def glPoint(self, x, y):
-      try:
-        self.framebuffer[x][y] = self.current_color
-      except:
-        pass
+      if(0 < x < self.width and 0 < y < self.height):
+          self.framebuffer[y][x] = self.clearColor
 
     def glLine(self,x1, y1, x2, y2):
       x1 = int(round((x1+1) * self.width / 2))
@@ -112,6 +115,7 @@ class Render(object):
       x2 = int(round((x2+1) * self.width / 2))
       y2 = int(round((y2+1) * self.height / 2))
       steep=(abs(y2 - y1))>(abs(x2 - x1))
+      
       if steep:
         x1, y1 = y1, x1
         x2, y2 = y2, x2
@@ -206,45 +210,44 @@ class Render(object):
     # SR4               
     
     def triangle_babycenter(self, vertices, tvertices=()):
-      A, B, C = vertices
-      if self.texture:
-        tA, tB, tC = tvertices
-      
-      Light = self.light
-      Normal = (B - A) * (C - A)
-      i = Normal.norm() @ Light.norm()
-      if i < 0:
-        return
+        A, B, C = vertices
+        if self.texture:
+            tA, tB, tC = tvertices
+        
+        Light = self.light
+        Normal = (B - A) * (C - A)
+        i = Normal.norm() @ Light.norm()
+        if i < 0:
+            return
 
-      # print(i)
-      self.clearColor = color(
-        round(255 * i),
-        round(255 * i),
-        round(255 * i)
-      )
+        self.clearColor = color(
+            round(255 * i),
+            round(255 * i),
+            round(255 * i)
+        )
 
-      min,max = bounding_box(A, B, C)
-      min.round_coords()
-      max.round_coords()
-      
-      for x in range(min.x, max.x + 1):
-        for y in range(min.y, max.y + 1):
-          w, v, u = barycentric(A, B, C, V3(x, y))
+        min,max = bounding_box(A, B, C)
+        min.round_coords()
+        max.round_coords()
+        
+        for x in range(min.x, max.x + 1):
+            for y in range(min.y, max.y + 1):
+                w, v, u = barycentric(A, B, C, V3(x, y))
 
-          if (w < 0 or v < 0 or u < 0):
-            continue
+                if (w < 0 or v < 0 or u < 0):
+                    continue
 
-          z = A.z * w + B.z * v + C.z * u
-          if (self.zBuffer[x][y] < z):
-            self.zBuffer[x][y] = z
+                z = A.z * w + B.z * v + C.z * u
+                if (self.zBuffer[x][y] < z):
+                    self.zBuffer[x][y] = z
 
-            if self.texture:
-              tx = tA.x * w + tB.x * u + tC.x * v
-              ty = tA.y * w + tB.y * u + tC.y * v
+                    if self.texture:
+                        tx = tA.x * w + tB.x * u + tC.x * v
+                        ty = tA.y * w + tB.y * u + tC.y * v
 
-              self.current_color = self.texture.get_color_with_intensity(tx, ty, i)
-            
-            self.glPoint(x, y)
+                        self.current_color = self.texture.get_color_with_intensity(tx, ty, i)
+                    
+                    self.glPoint(x, y)
     
     def lightPosition(self, x:int, y:int, z:int):
       self.light = V3(x, y, z)

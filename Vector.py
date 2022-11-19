@@ -51,3 +51,9 @@ class V3(object):
     # print bonito
     def __repr__(self):
         return "V3 (%s, %s, %s)" % (self.x, self.y, self.z)
+    
+    #se redondean cordenadas 
+    def round_coords(self):
+        self.x = round(self.x)
+        self.y = round(self.y)
+        self.z = round(self.z)
