@@ -279,7 +279,7 @@ class Render(object):
             # Color table
             for y in range(self.height):
                 for x in range(self.width):
-                    file.write(self.framebuffer[x][y])
+                    file.write(self.framebuffer[y][x])
             file.close()
       
 
